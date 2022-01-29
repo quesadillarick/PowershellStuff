@@ -1,5 +1,5 @@
 $updates = "remote path to updates"
-$localpath = "Local path to patches"
+$localpath = "Local path to store patches for install"
 $hotfixes = (Get-Hotfix).HotFixID
 write-host $hotfixes "--- KB Already Installed"
 
