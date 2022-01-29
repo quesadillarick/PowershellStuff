@@ -1,12 +1,19 @@
 $updates = "remote path to updates"
 $localpath = "Local path to patches"
 $hotfixes = (Get-Hotfix).HotFixID
+write-host $hotfixes "--- KB Already Installed"
 
 $updatelist = get-childitem $updates -recurse | where {$_.extension -eq ".msu"}
+
 foreach($update in $updatelist){
+    Write-Host "Checking to see if $($update) is already in local directory."
     if(!(test-path -Path "$($localpath)\$($update.Name)")){
-        Write-Host "Copying file to local directory"
-        Copy-Item -Path $update.FullName -Destination $localpath
+        Write-Host "$($update.Name) does not exist, copying to local directory"
+        ### UNCOMMENT BELOW TO ACTUALLY PERFORM THE COPY 
+        #Copy-Item -Path $update.FullName -Destination $localpath
+    }
+    else{
+        Write-Host "$($update.Name) already exists"
     }
 }
 
@@ -20,9 +27,12 @@ foreach ($KB in $($KBs | select -ExpandProperty "Name")) { #In order to have Pow
     $KB = $splitUp[0].ToUpper() #We get the element n°1 (KB name). The element 0 is the path. ToUpper() convert the name in uppercase.
     $KBArrayList.AddRange(@("$KB")) #We add the KN name to our KBArrayList list
 }
-write-host $hotfixes "--- KB Already Installed"
-Write-Host $KBArrayList "--- KB Waiting" #show all the KBs
-
+if($KBArrayList){
+    Write-Host $KBArrayList "--- KB Waiting" #show all the KBs
+}
+else{
+    Write-Host "NOTHING TO INSTALL"
+}
  
   foreach ($KB in $($KBArrayList | Where-Object { $_ -match ".*KB.*" } | select -Unique)) { #we remove duplicate KBs from the list and we only get elements where the word KB is present.
     
@@ -31,7 +41,8 @@ Write-Host $KBArrayList "--- KB Waiting" #show all the KBs
         $KB_dir = $KBs | Where-Object { $_.Name -match ".*$($KB.ToLower()).*" } | select -First 1 -expand Directory #get the directory where the KB is. First 1 allows to only get the first occurence. Expand allows to convert current objet in string format.
         $KB_name = $KBs | Where-Object { $_.Name -match ".*$($KB.ToLower()).*" } | select -First 1 -expand Name #get the KB name. First 1 allows to only get the first occurence. Expand allows to convert current objet in string format.
         Write-Host "Start-Process -FilePath wusa.exe -ArgumentList `"$KB_dir\$KB_name`" /quiet /norestart -Wait" #Show the command
-        Start-Process -FilePath wusa.exe -ArgumentList "`"$KB_dir\$KB_name`"" -Wait #KB installation
+        ### UNCOMMENT BELOW TO ACTUALLY PERFORM THE INSTALL
+        #Start-Process -FilePath wusa.exe -ArgumentList "`"$KB_dir\$KB_name`"" -Wait #KB installation
 
     } else {
         Write-Host "$KB is already installed"
