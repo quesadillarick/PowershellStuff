@@ -1,0 +1,67 @@
+$Sync = [HashTable]::Synchronized(@{})
+$Sync.Actions = [System.Collections.Queue]::new()
+$PowerShell = [PowerShell]::Create()
+$PowerShell.Runspace = [RunspaceFactory]::CreateRunspace()
+$PowerShell.Runspace.Open()
+$PowerShell.Runspace.SessionStateProxy.SetVariable('Sync', $Sync)
+# Run the GUI in a separate thread, that we dont freeze on user actions
+$Handle = $PowerShell.AddScript(
+    {
+        [void][System.Reflection.Assembly]::LoadWithPartialName('System.Windows.Forms')
+        $Sync.Form = [System.Windows.Forms.Form] @{
+            Size = New-Object System.Drawing.Size(315,350)
+            Text = 'My GUI Window'
+        }
+        $Sync.ListBox = [System.Windows.Forms.ListBox] @{
+            Location = New-Object System.Drawing.Size(20,35)
+            Size = New-Object System.Drawing.Size(246,200)
+            
+            #Dock = [System.Windows.Forms.DockStyle]::Fill
+        }
+        $Button = [System.Windows.Forms.Button] @{
+            Text = 'Hostname'
+            Location = New-Object System.Drawing.Size(146,240)
+            Size = New-Object System.Drawing.Size(120,25)
+            #Dock = [System.Windows.Forms.DockStyle]::Left
+        }
+        $Button1 = [System.Windows.Forms.Button] @{
+            Text = 'IP Address'
+            Location = New-Object System.Drawing.Size(20,240)
+            Size = New-Object System.Drawing.Size(120,25)
+            #Dock = [System.Windows.Forms.DockStyle]::Bottom
+        }
+        $Button.Add_Click(
+            {
+                $Sync.Actions.Enqueue('Hostname')
+            }
+        )
+        $Button1.Add_Click(
+            {
+                $Sync.Actions.Enqueue('IP Address')
+            }
+        )
+        [void] $Sync.Form.Controls.AddRange(@($Sync.ListBox, $Button,$Button1))
+        [void] $Sync.Form.ShowDialog()
+    }
+).BeginInvoke()
+
+$IP = (Get-NetIPAddress -InterfaceIndex 17 -AddressFamily IPv4).IPAddress
+$hostName = $env:COMPUTERNAME
+
+# While the handle of the separate thread we created is still running
+While (!$Handle.IsCompleted) {
+    While ($Sync.Actions.Count -gt 0) {
+        # Manage the actions we queue from inside
+        Switch ($Sync.Actions.Dequeue()) {
+            'Hostname' {
+                $Sync.ListBox.Items.Insert(0, $hostName)
+            }
+            'IP Address'{
+                #$IP = (Get-NetIPAddress -InterfaceIndex 17 -AddressFamily IPv4).IPAddress
+                $Sync.ListBox.Items.Insert(0, $IP)
+                
+            }
+        }
+    }
+    [System.Threading.Thread]::Sleep(100)
+}
